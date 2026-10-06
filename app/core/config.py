@@ -7,19 +7,20 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     APP_ENV: str = "development"
     APP_DEBUG: bool = True
-    APP_SECRET_KEY: str = "cwhub_secret_key_default"
+    APP_SECRET_KEY: str = "nexusbot_secret_key_default"
 
     # JWT Authentication
-    JWT_SECRET_KEY: str = "cwhub_jwt_secret_key_default_change_in_production"
+    JWT_SECRET_KEY: str = "nexusbot_jwt_secret_key_default_change_in_production"
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 horas
 
-    # Database
-    DB_HOST: str = "cpanel.conlineweb.com"
-    DB_PORT: int = 3306
-    DB_USER: str = "admin_clientes"
-    DB_PASS: str = ""
-    DB_NAME: str = "admin_clientes"
+    # Database (PostgreSQL por defecto)
+    DB_TYPE: str = "postgresql"
+    DB_HOST: str = "127.0.0.1"
+    DB_PORT: int = 5432
+    DB_USER: str = "postgres"
+    DB_PASS: str = "postgres"
+    DB_NAME: str = "nexusbot_db"
     DATABASE_URL: str = ""
 
     # HostingPro DB (opcional)
@@ -38,7 +39,7 @@ class Settings(BaseSettings):
         "https://cliente.conlineweb.com",
     ]
 
-    # SMTP Mail Server (Cargado exclusivamente desde .env)
+    # SMTP Mail Server
     SMTP_HOST: str = "smtp.gmail.com"
     SMTP_PORT: int = 587
     SMTP_SECURE: str = "tls"
@@ -46,7 +47,7 @@ class Settings(BaseSettings):
     SMTP_USER: str = ""
     SMTP_PASS: str = ""
     SMTP_FROM_EMAIL: str = ""
-    SMTP_FROM_NAME: str = "ConlineWeb CRM"
+    SMTP_FROM_NAME: str = "NexusBot CRM"
 
     model_config = SettingsConfigDict(
         env_file=os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".env"),
@@ -55,14 +56,16 @@ class Settings(BaseSettings):
     )
 
     def get_database_url(self) -> str:
-        import urllib.parse
         if self.DATABASE_URL:
             return self.DATABASE_URL
+        import urllib.parse
         quoted_user = urllib.parse.quote_plus(self.DB_USER)
-        quoted_pass = urllib.parse.quote_plus(self.DB_PASS)
-        return (
-            f"mysql+pymysql://{quoted_user}:{quoted_pass}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}?charset=utf8mb4"
-        )
+        quoted_pass = urllib.parse.quote_plus(self.DB_PASS) if self.DB_PASS else ""
+        auth_part = f"{quoted_user}:{quoted_pass}@" if quoted_pass else (f"{quoted_user}@" if quoted_user else "")
+
+        if self.DB_TYPE == "mysql" or self.DB_PORT == 3306:
+            return f"mysql+pymysql://{auth_part}{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}?charset=utf8mb4"
+        return f"postgresql+psycopg2://{auth_part}{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
 
 
 settings = Settings()
