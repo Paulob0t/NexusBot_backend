@@ -281,8 +281,8 @@ def get_cliente_detail(
                 id=p.id,
                 concepto=p.concepto or "Servicio Web",
                 monto=float(p.monto) if p.monto else 0.0,
-                moneda=p.moneda or "MXN",
-                fecha_vencimiento=str(p.fecha_limite) if p.fecha_limite else None,
+                moneda=p.currency or "MXN",
+                fecha_vencimiento=str(p.fecha_limite_pago) if p.fecha_limite_pago else (str(p.fecha) if p.fecha else None),
                 estatus=p.estatus or 0,
                 estatus_texto="Pagado" if p.estatus == 1 else "Pendiente",
             )
