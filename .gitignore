@@ -1,0 +1,38 @@
+# =============================================================================
+# GITIGNORE - NEXUSBOT BACKEND (FastAPI)
+# =============================================================================
+
+# --- SECRETOS Y VARIABLES DE ENTORNO ---
+.env
+.env.*
+!.env.example
+
+# --- PYTHON Y ENTORNOS VIRTUALES ---
+venv/
+.venv/
+ENV/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+.eggs/
+.mypy_cache/
+.ruff_cache/
+
+# --- LOGS ---
+*.log
+error_log
+error.log
+
+# --- SISTEMA OPERATIVO Y EDITORES ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
