@@ -114,7 +114,7 @@ def _email_base_wrapper(title: str, content_html: str, badge_text: str = "Record
                 <tr>
                   <td>
                     <span style="display: inline-block; font-size: 20px; font-weight: 800; color: #ffffff; letter-spacing: -0.5px;">
-                      NEXUS<span style="color: #3b82f6;">BOT</span>
+                      PUV<span style="color: #3b82f6;">NEX</span>
                     </span>
                     <span style="display: block; font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1.5px; margin-top: 2px;">
                       Cloud CRM & Hosting Services
@@ -144,7 +144,7 @@ def _email_base_wrapper(title: str, content_html: str, badge_text: str = "Record
                 Este es un mensaje automático generado por nuestro sistema de gestión.
               </p>
               <p style="margin: 0; font-size: 11px; color: #475569;">
-                &copy; 2026 ConlineWeb & NexusBot. Todos los derechos reservados.
+                &copy; 2026 ConlineWeb & Puvnex. Todos los derechos reservados.
               </p>
             </td>
           </tr>
@@ -366,7 +366,7 @@ def build_custom_email(
     Genera el HTML para un correo personalizado libre.
     """
     cuerpo_html = cuerpo.replace("\n", "<br>")
-    despedida_html = despedida.replace("\n", "<br>") if despedida else "Atentamente,<br><strong>Equipo de ConlineWeb & NexusBot</strong>"
+    despedida_html = despedida.replace("\n", "<br>") if despedida else "Atentamente,<br><strong>Equipo de ConlineWeb & Puvnex</strong>"
 
     content = f"""
       <h2 style="margin: 0 0 16px; font-size: 20px; font-weight: 700; color: #ffffff;">

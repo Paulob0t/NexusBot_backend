@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, SmallInteger
+from sqlalchemy import Column, Integer, String, Text, DateTime, SmallInteger, ForeignKey
 from app.core.database import Base
 
 
@@ -6,6 +6,7 @@ class Cliente(Base):
     __tablename__ = "clientes"
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    login_id = Column(Integer, ForeignKey("login.id", ondelete="SET NULL"), nullable=True, index=True)
     nombre_contacto = Column(String(50), nullable=True)
     empresa = Column(String(150), nullable=True)
     correo = Column(String(50), nullable=True)

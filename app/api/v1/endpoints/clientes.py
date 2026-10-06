@@ -372,11 +372,10 @@ def create_cliente(
     if correo_clean:
         raw_pass = (payload.contrasena or "").strip()
         if not raw_pass:
-            raw_pass = f"Nexus{nuevo_cliente.id}*"
+            raw_pass = f"Puvnex{nuevo_cliente.id}*"
         md5_pass = hashlib.md5(raw_pass.encode()).hexdigest()
 
         login_record = Login(
-            id=nuevo_cliente.id,
             usuario=correo_clean,
             contrasena=md5_pass,
             contrasena_normal=raw_pass,
@@ -384,6 +383,9 @@ def create_cliente(
             cambio_contrasena=0,
         )
         db.add(login_record)
+        db.flush()
+
+        nuevo_cliente.login_id = login_record.id
         db.commit()
 
     return get_cliente_detail(nuevo_cliente.id, current_user, db)

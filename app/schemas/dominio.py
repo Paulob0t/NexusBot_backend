@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 class DominioBase(BaseModel):
     cliente_id: int = Field(..., description="ID del cliente asociado")
     url_dominio: str = Field(..., min_length=3, description="Nombre del dominio web (ej. midominio.com)")
-    proveedor: Optional[str] = "NexusBot"
+    proveedor: Optional[str] = "Puvnex"
     url_pago: Optional[str] = None
     url_admin: Optional[str] = None
     usuario: Optional[str] = None

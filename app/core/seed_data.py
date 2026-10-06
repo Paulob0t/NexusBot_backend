@@ -11,11 +11,11 @@ from app.models.hosting import Hosting
 from app.models.pago import Pago
 from app.models.solicitud import Solicitud
 
-logger = logging.getLogger("nexusbot.seed")
+logger = logging.getLogger("puvnex.seed")
 
 
 def ensure_client_logins():
-    """Garantiza que todos los clientes en la base de datos tengan sus credenciales en la tabla login."""
+    """Garantiza que todos los clientes en la base de datos tengan sus credenciales en la tabla login y su login_id vinculado."""
     db = SessionLocal()
     try:
         # Sincronizar secuencia de login primero
@@ -24,26 +24,33 @@ def ensure_client_logins():
 
         clientes = db.query(Cliente).filter(Cliente.eliminado == 0).all()
         created_count = 0
+        linked_count = 0
         for c in clientes:
             if not c.correo:
                 continue
             email_clean = c.correo.strip().lower()
-            existing_login = db.query(Login).filter(Login.usuario == email_clean).first()
-            if not existing_login:
-                plain_pass = f"Nexus{c.id}*"
+            login_record = db.query(Login).filter(Login.usuario == email_clean).first()
+            if not login_record:
+                plain_pass = f"Puvnex{c.id}*"
                 hashed = hash_password(plain_pass)
-                nuevo_login = Login(
+                login_record = Login(
                     usuario=email_clean,
                     contrasena=hashed,
                     contrasena_normal=plain_pass,
                     id_tipo_usuario=0,  # 0 = Cliente
                     cambio_contrasena=0,
                 )
-                db.add(nuevo_login)
+                db.add(login_record)
+                db.flush()
                 created_count += 1
                 logger.info(f"Creado acceso login para cliente '{c.empresa}': usuario={email_clean}, pass={plain_pass}")
+            
+            if c.login_id != login_record.id:
+                c.login_id = login_record.id
+                linked_count += 1
+
         db.commit()
-        logger.info(f"✓ Acceso a login sincronizado para {created_count} clientes.")
+        logger.info(f"✓ Acceso a login sincronizado ({created_count} creados, {linked_count} vinculados).")
     except Exception as e:
         db.rollback()
         logger.error(f"Error sincronizando accesos de login: {e}")

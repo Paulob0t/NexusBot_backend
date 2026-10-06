@@ -67,8 +67,8 @@ def get_current_user(
     agente_id = None
 
     if user.id_tipo_usuario == 0:
-        cliente = None
-        if user.usuario and "@" in user.usuario:
+        cliente = db.query(Cliente).filter(Cliente.login_id == user.id).first()
+        if not cliente and user.usuario and "@" in user.usuario:
             cliente = db.query(Cliente).filter(Cliente.correo.ilike(user.usuario.strip())).first()
         if not cliente:
             cliente = db.query(Cliente).filter(Cliente.id == user.id).first()
@@ -153,8 +153,8 @@ def login(
     agente_id = None
 
     if user.id_tipo_usuario == 0:
-        cliente = None
-        if user.usuario and "@" in user.usuario:
+        cliente = db.query(Cliente).filter(Cliente.login_id == user.id).first()
+        if not cliente and user.usuario and "@" in user.usuario:
             cliente = db.query(Cliente).filter(Cliente.correo.ilike(user.usuario.strip())).first()
         if not cliente:
             cliente = db.query(Cliente).filter(Cliente.id == user.id).first()

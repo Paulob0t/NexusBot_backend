@@ -1,6 +1,6 @@
 <div align="center">
 
-# ⚡ NexusBot CRM — Backend API
+# ⚡ Puvnex CRM — Backend API
 ### *High-Performance Cloud Enterprise API & Orchestration Engine*
 
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
@@ -85,7 +85,7 @@
 ## 📂 Estructura del Proyecto
 
 ```bash
-NexusBot_backend/
+Puvnex_backend/
 ├── app/
 │   ├── api/
 │   │   └── v1/
@@ -133,8 +133,8 @@ NexusBot_backend/
 
 1. **Clonar el repositorio**:
    ```bash
-   git clone git@github.com:Paulob0t/NexusBot_backend.git
-   cd NexusBot_backend
+   git clone git@github.com:Paulob0t/Puvnex_backend.git
+   cd Puvnex_backend
    ```
 
 2. **Crear y activar el entorno virtual**:
@@ -222,6 +222,6 @@ Con el servidor en ejecución, puedes explorar y probar la API en tiempo real:
 
 <div align="center">
 
-Desarrollado con ❤️ por **Paulo Essau** • *NexusBot Suite Cloud*
+Desarrollado con ❤️ por **Paulo Essau** • *Puvnex Suite Cloud*
 
 </div>

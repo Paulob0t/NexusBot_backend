@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 
 class HostingBase(BaseModel):
     cliente_id: int = Field(..., description="ID del cliente asociado")
-    nom_host: str = Field(..., min_length=2, description="Nombre del servidor o host (ej. srv1.nexusbot.io o cpanel.empresa.com)")
+    nom_host: str = Field(..., min_length=2, description="Nombre del servidor o host (ej. srv1.puvnex.io o cpanel.empresa.com)")
     dominio: Optional[str] = Field("", description="Dominio principal asociado")
     usuario: Optional[str] = Field("", description="Usuario cPanel / WHM")
     contrasena_normal: Optional[str] = Field("", description="Contraseña en texto claro")

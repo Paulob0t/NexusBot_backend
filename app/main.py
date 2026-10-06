@@ -14,7 +14,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="NexusBot Enterprise CRM API",
+    title="Puvnex Enterprise CRM API",
     description="Backend API moderno para Gestión de Clientes, Dominios, Hosting y Tickets (FastAPI + SQLAlchemy + PostgreSQL)",
     version="1.0.0",
     docs_url="/docs",
@@ -49,7 +49,7 @@ def health_check():
 @app.get("/", tags=["Root"])
 def root():
     return {
-        "message": "Bienvenido a NexusBot API",
+        "message": "Bienvenido a Puvnex API",
         "docs": "/docs",
         "health": "/api/health"
     }

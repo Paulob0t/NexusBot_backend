@@ -7,10 +7,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     APP_ENV: str = "development"
     APP_DEBUG: bool = True
-    APP_SECRET_KEY: str = "nexusbot_secret_key_default"
+    APP_SECRET_KEY: str = "puvnex_secret_key_default"
 
     # JWT Authentication
-    JWT_SECRET_KEY: str = "nexusbot_jwt_secret_key_default_change_in_production"
+    JWT_SECRET_KEY: str = "puvnex_jwt_secret_key_default_change_in_production"
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 horas
 
@@ -47,7 +47,7 @@ class Settings(BaseSettings):
     SMTP_USER: str = ""
     SMTP_PASS: str = ""
     SMTP_FROM_EMAIL: str = ""
-    SMTP_FROM_NAME: str = "NexusBot CRM"
+    SMTP_FROM_NAME: str = "Puvnex CRM"
 
     model_config = SettingsConfigDict(
         env_file=os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".env"),

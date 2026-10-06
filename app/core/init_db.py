@@ -5,7 +5,7 @@ from app.models.login import Login
 from app.models.cliente import Cliente
 from app.core.security import hash_password
 
-logger = logging.getLogger("nexusbot.init_db")
+logger = logging.getLogger("puvnex.init_db")
 
 
 def init_db():
