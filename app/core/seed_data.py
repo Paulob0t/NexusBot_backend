@@ -1,7 +1,10 @@
 import logging
 from datetime import date, datetime, timedelta, time
+from sqlalchemy import text
 from app.core.database import SessionLocal, Base, engine
+from app.core.security import hash_password
 import app.models  # Asegura todos los modelos
+from app.models.login import Login
 from app.models.cliente import Cliente
 from app.models.dominio import Dominio
 from app.models.hosting import Hosting
@@ -9,6 +12,45 @@ from app.models.pago import Pago
 from app.models.solicitud import Solicitud
 
 logger = logging.getLogger("nexusbot.seed")
+
+
+def ensure_client_logins():
+    """Garantiza que todos los clientes en la base de datos tengan sus credenciales en la tabla login."""
+    db = SessionLocal()
+    try:
+        # Sincronizar secuencia de login primero
+        db.execute(text("SELECT setval('login_id_seq', COALESCE((SELECT MAX(id) FROM login), 1));"))
+        db.commit()
+
+        clientes = db.query(Cliente).filter(Cliente.eliminado == 0).all()
+        created_count = 0
+        for c in clientes:
+            if not c.correo:
+                continue
+            email_clean = c.correo.strip().lower()
+            existing_login = db.query(Login).filter(Login.usuario == email_clean).first()
+            if not existing_login:
+                plain_pass = f"Nexus{c.id}*"
+                hashed = hash_password(plain_pass)
+                nuevo_login = Login(
+                    usuario=email_clean,
+                    contrasena=hashed,
+                    contrasena_normal=plain_pass,
+                    id_tipo_usuario=0,  # 0 = Cliente
+                    cambio_contrasena=0,
+                )
+                db.add(nuevo_login)
+                created_count += 1
+                logger.info(f"Creado acceso login para cliente '{c.empresa}': usuario={email_clean}, pass={plain_pass}")
+        db.commit()
+        logger.info(f"✓ Acceso a login sincronizado para {created_count} clientes.")
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error sincronizando accesos de login: {e}")
+        raise e
+    finally:
+        db.close()
+
 
 def seed_test_data():
     Base.metadata.create_all(bind=engine)
@@ -19,7 +61,8 @@ def seed_test_data():
         # Verificar si ya existen clientes para no duplicar
         count = db.query(Cliente).count()
         if count > 0:
-            logger.info(f"Ya existen {count} clientes en la base de datos.")
+            logger.info(f"Ya existen {count} clientes en la base de datos. Sincronizando usuarios...")
+            ensure_client_logins()
             return
 
         logger.info("Iniciando sembrado de clientes de prueba para ConlineWeb y HostingPro...")
@@ -409,12 +452,16 @@ def seed_test_data():
 
         db.commit()
         logger.info("✓ 6 Clientes con servicios, dominios, hosting y pagos creados exitosamente.")
+        
+        # Sincronizar accesos login para todos los clientes creados
+        ensure_client_logins()
     except Exception as e:
         db.rollback()
         logger.error(f"Error sembrando datos de prueba: {e}")
         raise e
     finally:
         db.close()
+
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)

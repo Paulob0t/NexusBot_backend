@@ -67,20 +67,30 @@ def get_current_user(
     agente_id = None
 
     if user.id_tipo_usuario == 0:
-        cliente = db.query(Cliente).filter(Cliente.id == user.id).first()
+        cliente = None
+        if user.usuario and "@" in user.usuario:
+            cliente = db.query(Cliente).filter(Cliente.correo.ilike(user.usuario.strip())).first()
+        if not cliente:
+            cliente = db.query(Cliente).filter(Cliente.id == user.id).first()
         if cliente:
             nombre = cliente.nombre_contacto or user.usuario
             correo = cliente.correo
             empresa = cliente.empresa
+            effective_id = cliente.id
+        else:
+            effective_id = user.id
     elif user.id_tipo_usuario in (1, 2, 3, 4, 5):
+        effective_id = user.id
         agente = db.query(Agente).filter(Agente.Idusu == user.id).first()
         if agente:
             nombre = agente.nombre or user.usuario
             correo = agente.correo
             agente_id = agente.id
+    else:
+        effective_id = user.id
 
     return UserProfile(
-        id=user.id,
+        id=effective_id,
         usuario=user.usuario,
         id_tipo_usuario=user.id_tipo_usuario,
         rol=ROLE_NAMES.get(user.id_tipo_usuario, "Usuario"),
@@ -143,12 +153,20 @@ def login(
     agente_id = None
 
     if user.id_tipo_usuario == 0:
-        cliente = db.query(Cliente).filter(Cliente.id == user.id).first()
+        cliente = None
+        if user.usuario and "@" in user.usuario:
+            cliente = db.query(Cliente).filter(Cliente.correo.ilike(user.usuario.strip())).first()
+        if not cliente:
+            cliente = db.query(Cliente).filter(Cliente.id == user.id).first()
         if cliente:
             nombre = cliente.nombre_contacto or user.usuario
             correo = cliente.correo
             empresa = cliente.empresa
+            effective_id = cliente.id
+        else:
+            effective_id = user.id
     else:
+        effective_id = user.id
         agente = db.query(Agente).filter(Agente.Idusu == user.id).first()
         if agente:
             nombre = agente.nombre or user.usuario
@@ -157,7 +175,7 @@ def login(
 
     # Generar JWT Token
     token_data = {
-        "sub": str(user.id),
+        "sub": str(effective_id),
         "usuario": user.usuario,
         "tipo": user.id_tipo_usuario,
         "agente_id": agente_id
@@ -165,7 +183,7 @@ def login(
     access_token = create_access_token(token_data)
 
     user_profile = UserProfile(
-        id=user.id,
+        id=effective_id,
         usuario=user.usuario,
         id_tipo_usuario=user.id_tipo_usuario,
         rol=ROLE_NAMES.get(user.id_tipo_usuario, "Usuario"),
@@ -175,7 +193,7 @@ def login(
         agente_id=agente_id
     )
 
-    redirect_path = ROLE_REDIRECTS.get(user.id_tipo_usuario, "/portal/clientes")
+    redirect_path = ROLE_REDIRECTS.get(user.id_tipo_usuario, "/portal")
 
     return LoginResponse(
         status="ok",
