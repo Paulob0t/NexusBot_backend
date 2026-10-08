@@ -156,17 +156,21 @@ def get_solicitudes_kpis(
     db: Session = Depends(get_db),
     current_user: UserProfile = Depends(get_current_user),
 ):
-    """Retorna métricas globales y personalizadas del módulo de solicitudes."""
-    total = db.query(func.count(Solicitud.id)).scalar() or 0
-    pendientes = db.query(func.count(Solicitud.id)).filter(Solicitud.estado == "Pendiente").scalar() or 0
-    en_proceso = db.query(func.count(Solicitud.id)).filter(Solicitud.estado == "En Proceso").scalar() or 0
-    finalizadas = db.query(func.count(Solicitud.id)).filter(Solicitud.estado == "Finalizado").scalar() or 0
-    alta_prioridad = db.query(func.count(Solicitud.id)).filter(
+    """Retorna métricas globales o personalizadas del módulo de solicitudes."""
+    base_query = db.query(func.count(Solicitud.id))
+    if current_user.id_tipo_usuario == 0:
+        base_query = base_query.filter(Solicitud.id_cliente == current_user.id)
+
+    total = base_query.scalar() or 0
+    pendientes = base_query.filter(Solicitud.estado == "Pendiente").scalar() or 0
+    en_proceso = base_query.filter(Solicitud.estado == "En Proceso").scalar() or 0
+    finalizadas = base_query.filter(Solicitud.estado == "Finalizado").scalar() or 0
+    alta_prioridad = base_query.filter(
         and_(Solicitud.prioridad == "Alta", Solicitud.estado != "Finalizado")
     ).scalar() or 0
 
     asignadas_a_mi = 0
-    if current_user.agente_id:
+    if current_user.id_tipo_usuario != 0 and current_user.agente_id:
         aid_str = str(current_user.agente_id)
         asignadas_a_mi = db.query(func.count(Solicitud.id)).filter(
             and_(
@@ -205,7 +209,7 @@ def list_solicitudes(
 ):
     """
     Lista las solicitudes con paginación, filtros avanzados y conteo de notas.
-    Soporta asignación múltiple de agentes y perfiles de Agente/Desarrollador.
+    Soporta asignación múltiple de agentes y perfiles de Agente/Desarrollador y Cliente.
     """
     agentes_map = _get_agentes_dict(db)
 
@@ -230,6 +234,32 @@ def list_solicitudes(
         .outerjoin(notas_count_subq, Solicitud.id == notas_count_subq.c.solicitud_id)
     )
 
+    # Si el usuario autenticado es un Cliente (id_tipo_usuario == 0), forzar filtrado estricto por su propio ID de cliente
+    if current_user.id_tipo_usuario == 0:
+        query = query.filter(Solicitud.id_cliente == current_user.id)
+    else:
+        # Filtro por cliente específico (solo para admins/agentes)
+        if cliente_id:
+            query = query.filter(Solicitud.id_cliente == cliente_id)
+
+        # Filtro por agente
+        target_agente_id = None
+        if solo_mias and current_user.agente_id:
+            target_agente_id = current_user.agente_id
+        elif agente_id:
+            target_agente_id = agente_id
+
+        if target_agente_id:
+            aid_str = str(target_agente_id)
+            query = query.filter(
+                or_(
+                    Solicitud.usuario_asignado == aid_str,
+                    Solicitud.usuario_asignado.like(f"{aid_str},%"),
+                    Solicitud.usuario_asignado.like(f"%,{aid_str},%"),
+                    Solicitud.usuario_asignado.like(f"%,{aid_str}")
+                )
+            )
+
     # Filtro por estado
     if estado and estado != "todos":
         query = query.filter(Solicitud.estado == estado)
@@ -237,28 +267,6 @@ def list_solicitudes(
     # Filtro por prioridad
     if prioridad and prioridad != "todos":
         query = query.filter(Solicitud.prioridad == prioridad)
-
-    # Filtro por cliente
-    if cliente_id:
-        query = query.filter(Solicitud.id_cliente == cliente_id)
-
-    # Filtro por agente
-    target_agente_id = None
-    if solo_mias and current_user.agente_id:
-        target_agente_id = current_user.agente_id
-    elif agente_id:
-        target_agente_id = agente_id
-
-    if target_agente_id:
-        aid_str = str(target_agente_id)
-        query = query.filter(
-            or_(
-                Solicitud.usuario_asignado == aid_str,
-                Solicitud.usuario_asignado.like(f"{aid_str},%"),
-                Solicitud.usuario_asignado.like(f"%,{aid_str},%"),
-                Solicitud.usuario_asignado.like(f"%,{aid_str}")
-            )
-        )
 
     # Filtro por búsqueda de texto
     if search and isinstance(search, str) and search.strip():
@@ -341,6 +349,10 @@ def get_solicitud(
     if not sol:
         raise HTTPException(status_code=404, detail="Solicitud no encontrada")
 
+    # Si es cliente, verificar pertenencia
+    if current_user.id_tipo_usuario == 0 and sol.id_cliente != current_user.id:
+        raise HTTPException(status_code=404, detail="Solicitud no encontrada")
+
     agentes_map = _get_agentes_dict(db)
     t_desc, imgs, fls = _parse_descripcion(sol.descripcion)
     agentes_list = _resolve_agentes(sol.usuario_asignado, agentes_map)
@@ -399,17 +411,23 @@ def create_solicitud(
     db: Session = Depends(get_db),
     current_user: UserProfile = Depends(get_current_user),
 ):
-    """Crea una nueva solicitud con soporte de múltiples agentes asignados."""
-    # Convertir lista de agentes a CSV
-    assigned_csv = ",".join(str(aid) for aid in payload.agentes_ids) if payload.agentes_ids else None
-
-    # Parsear fecha límite
-    fecha_limite = None
-    if payload.fecha_lim:
-        try:
-            fecha_limite = datetime.strptime(payload.fecha_lim[:10], "%Y-%m-%d")
-        except Exception:
-            pass
+    """Crea una nueva solicitud con soporte de múltiples agentes asignados o desde portal cliente."""
+    if current_user.id_tipo_usuario == 0:
+        # En modo cliente: forzar cliente propio, sin asignación directa de agentes y sin recurrencia
+        target_cliente_id = current_user.id
+        assigned_csv = None
+        fecha_limite = None
+        repetir_val = 0
+    else:
+        target_cliente_id = payload.id_cliente
+        assigned_csv = ",".join(str(aid) for aid in payload.agentes_ids) if payload.agentes_ids else None
+        fecha_limite = None
+        if payload.fecha_lim:
+            try:
+                fecha_limite = datetime.strptime(payload.fecha_lim[:10], "%Y-%m-%d")
+            except Exception:
+                pass
+        repetir_val = payload.repetir or 0
 
     # Almacenar descripción en formato JSON estructurado
     desc_json = json.dumps({"text": payload.descripcion or "", "images": [], "files": []}, ensure_ascii=False)
@@ -417,12 +435,12 @@ def create_solicitud(
     nueva = Solicitud(
         titulo=payload.titulo.strip(),
         descripcion=desc_json,
-        id_cliente=payload.id_cliente,
+        id_cliente=target_cliente_id,
         creado_por_login_id=current_user.id,
         usuario_asignado=assigned_csv,
         prioridad=payload.prioridad or "Media",
         fecha_lim=fecha_limite,
-        repetir=payload.repetir or 0,
+        repetir=repetir_val,
         estado="Pendiente",
         fecha_solicitud=datetime.now(),
     )
@@ -446,38 +464,54 @@ def update_solicitud(
     if not sol:
         raise HTTPException(status_code=404, detail="Solicitud no encontrada")
 
-    if payload.titulo is not None:
-        sol.titulo = payload.titulo.strip()
+    if current_user.id_tipo_usuario == 0:
+        if sol.id_cliente != current_user.id:
+            raise HTTPException(status_code=404, detail="Solicitud no encontrada")
+        # El cliente solo puede editar título y descripción si sigue pendiente
+        if payload.titulo is not None:
+            sol.titulo = payload.titulo.strip()
+        if payload.descripcion is not None:
+            _, curr_imgs, curr_fls = _parse_descripcion(sol.descripcion)
+            sol.descripcion = json.dumps({
+                "text": payload.descripcion,
+                "images": curr_imgs,
+                "files": curr_fls
+            }, ensure_ascii=False)
+        if payload.prioridad is not None:
+            sol.prioridad = payload.prioridad
+    else:
+        if payload.titulo is not None:
+            sol.titulo = payload.titulo.strip()
 
-    if payload.descripcion is not None:
-        _, curr_imgs, curr_fls = _parse_descripcion(sol.descripcion)
-        sol.descripcion = json.dumps({
-            "text": payload.descripcion,
-            "images": curr_imgs,
-            "files": curr_fls
-        }, ensure_ascii=False)
+        if payload.descripcion is not None:
+            _, curr_imgs, curr_fls = _parse_descripcion(sol.descripcion)
+            sol.descripcion = json.dumps({
+                "text": payload.descripcion,
+                "images": curr_imgs,
+                "files": curr_fls
+            }, ensure_ascii=False)
 
-    if payload.id_cliente is not None:
-        sol.id_cliente = payload.id_cliente
+        if payload.id_cliente is not None:
+            sol.id_cliente = payload.id_cliente
 
-    if payload.prioridad is not None:
-        sol.prioridad = payload.prioridad
+        if payload.prioridad is not None:
+            sol.prioridad = payload.prioridad
 
-    if payload.estado is not None:
-        sol.estado = payload.estado
-        if payload.estado == "Finalizado" and not sol.fecha_termina:
-            sol.fecha_termina = datetime.now()
-        elif payload.estado != "Finalizado":
-            sol.fecha_termina = None
+        if payload.estado is not None:
+            sol.estado = payload.estado
+            if payload.estado == "Finalizado" and not sol.fecha_termina:
+                sol.fecha_termina = datetime.now()
+            elif payload.estado != "Finalizado":
+                sol.fecha_termina = None
 
-    if payload.agentes_ids is not None:
-        sol.usuario_asignado = ",".join(str(aid) for aid in payload.agentes_ids) if payload.agentes_ids else None
+        if payload.agentes_ids is not None:
+            sol.usuario_asignado = ",".join(str(aid) for aid in payload.agentes_ids) if payload.agentes_ids else None
 
-    if payload.fecha_lim is not None:
-        try:
-            sol.fecha_lim = datetime.strptime(payload.fecha_lim[:10], "%Y-%m-%d") if payload.fecha_lim else None
-        except Exception:
-            pass
+        if payload.fecha_lim is not None:
+            try:
+                sol.fecha_lim = datetime.strptime(payload.fecha_lim[:10], "%Y-%m-%d") if payload.fecha_lim else None
+            except Exception:
+                pass
 
     db.commit()
     db.refresh(sol)
@@ -493,6 +527,9 @@ def update_solicitud_status(
     current_user: UserProfile = Depends(get_current_user),
 ):
     """Cambia el estado del ticket (Pendiente -> En Proceso -> Finalizado)."""
+    if current_user.id_tipo_usuario == 0:
+        raise HTTPException(status_code=403, detail="No autorizado para cambiar el estado de la solicitud")
+
     sol = db.query(Solicitud).filter(Solicitud.id == id).first()
     if not sol:
         raise HTTPException(status_code=404, detail="Solicitud no encontrada")
@@ -517,6 +554,9 @@ def assign_solicitud_agents(
     current_user: UserProfile = Depends(get_current_user),
 ):
     """Asigna uno o varios agentes a una solicitud existente."""
+    if current_user.id_tipo_usuario == 0:
+        raise HTTPException(status_code=403, detail="No autorizado para asignar agentes")
+
     sol = db.query(Solicitud).filter(Solicitud.id == id).first()
     if not sol:
         raise HTTPException(status_code=404, detail="Solicitud no encontrada")
@@ -535,6 +575,9 @@ def delete_solicitud(
     current_user: UserProfile = Depends(get_current_user),
 ):
     """Elimina una solicitud y sus notas asociadas."""
+    if current_user.id_tipo_usuario == 0:
+        raise HTTPException(status_code=403, detail="No autorizado para eliminar solicitudes")
+
     sol = db.query(Solicitud).filter(Solicitud.id == id).first()
     if not sol:
         raise HTTPException(status_code=404, detail="Solicitud no encontrada")
@@ -558,7 +601,14 @@ def add_solicitud_nota(
     if not sol:
         raise HTTPException(status_code=404, detail="Solicitud no encontrada")
 
-    autor_nombre = current_user.nombre or current_user.usuario or "Agente"
+    if current_user.id_tipo_usuario == 0 and sol.id_cliente != current_user.id:
+        raise HTTPException(status_code=404, detail="Solicitud no encontrada")
+
+    if current_user.id_tipo_usuario == 0:
+        autor_nombre = current_user.nombre or current_user.empresa or "Cliente"
+    else:
+        autor_nombre = current_user.nombre or current_user.usuario or "Soporte Puvnex"
+
     nota_json = json.dumps({
         "text": payload.nota.strip(),
         "images": payload.imagenes or []
