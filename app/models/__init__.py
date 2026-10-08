@@ -6,6 +6,10 @@ from app.models.dominio import Dominio
 from app.models.hosting import Hosting
 from app.models.solicitud import Solicitud
 from app.models.solicitud_nota import SolicitudNota
+from app.models.tienda import TiendaConfig, TiendaItem, TiendaFaq
 
-__all__ = ["Login", "Cliente", "Agente", "Pago", "Dominio", "Hosting", "Solicitud", "SolicitudNota"]
+__all__ = [
+    "Login", "Cliente", "Agente", "Pago", "Dominio", "Hosting",
+    "Solicitud", "SolicitudNota", "TiendaConfig", "TiendaItem", "TiendaFaq"
+]
 
